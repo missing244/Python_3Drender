@@ -24,8 +24,8 @@ def keyboard(key, x, y) :
     print(key, Camera1.location)
 def Motion(x, y) :
     if (WIDTH//2) == x and (HEIGHT//2) == y : return None
-    Camera1.rotation[1] += np.pi / 180 * (WIDTH//2 - x) * 0.2
-    Camera1.rotation[0] += np.pi / 180 * (HEIGHT//2 - y) * 0.2
+    Camera1.rotation[1] -= np.pi / 180 * (WIDTH//2 - x) * 0.2
+    Camera1.rotation[0] -= np.pi / 180 * (HEIGHT//2 - y) * 0.2
     Camera1.rotation[0] = min(np.pi/2, Camera1.rotation[0])
     Camera1.rotation[0] = max(-np.pi/2, Camera1.rotation[0])
     GLUT.glutWarpPointer(WIDTH//2, HEIGHT//2)

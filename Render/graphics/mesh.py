@@ -39,6 +39,7 @@ class BaseMesh(metaclass=abc.ABCMeta) :
     @abc.abstractmethod
     def __iter__(self) : pass
 
+
 class LineMesh(BaseMesh, metaclass=abc.ABCMeta) :
     """
     # 直线组对象
@@ -121,44 +122,3 @@ class TriangleMesh(BaseMesh, metaclass=abc.ABCMeta) :
                 )))[0:3] + self.location
             for j in range(3)], dtype=np.float64 )
 
-class QuadrilateralMesh(BaseMesh, metaclass=abc.ABCMeta) :
-    """
-    # 四边形网格对象
-    定义一个四边形网格对象
-    
-    ---------------------
-
-    Mesh.dots 储存了所有的三维点信息
-
-    Mesh.index 储存了四个索引为一组的四边形网信息
-    """
-
-    __slots__ = ["dots", "index"] 
-
-    def __repr__(self) -> str:
-        return "<%s Dots=%s>" % (self.__class__.__name__, len(self.dots))
-
-    def __init__(self, dots:Iterator[Union[int,float]], index:Iterator[int]) -> None :
-        super().__init__()
-        if any((not isinstance(i, TypeOfNumber) for i in dots)) : raise TypeError("点必须为数字类型")
-        if any((not isinstance(i, TypeOfInt) for i in index)) : raise TypeError("点索引必须为数字类型")
-        if len(dots) % 3 != 0 : raise ValueError("存在不完整的三维点信息")
-        if len(index) % 4 != 0 : raise ValueError("三角网索引的数量必须为3的倍数")
-
-        self.dots:np.ndarray[np.float64] = np.array([dots[i:i+3] for i in range(0, len(dots), 3)], dtype=np.float64)
-        self.index:np.ndarray[np.uint32] = np.array(index, dtype=np.uint32)
-
-    def __setattr__(self, name: str, value) -> None:
-        if not hasattr(self, name) : super().__setattr__(name, value)
-        else : raise Exception("无法对 %s 属性进行重新赋值" % name)
-
-    def __iter__(self) :
-        translation = self.translation_matrix
-        scale = self.scale_matrix
-        rotate = self.rotation_matrix
-        for i in range(0, len(self.index), 4) :
-            yield np.array([ 
-                translation.dot( scale.dot( rotate.dot( 
-                    np.append(self.dots[self.index[i+j]], 1)
-                )))[0:3] + self.location
-            for j in range(4)], dtype=np.float64 )

@@ -1,9 +1,17 @@
-from . import np,Union,Tuple,Graphics,TypeOfNumber
+from . import np,Union,Graphics,TypeOfNumber
 import OpenGL.GL as GL
 
 TypeAliasRenderObject = Union[Graphics.Graphic3D.BaseGraphic3D]
 TypeOfRenderObject = (Graphics.Graphic3D.BaseGraphic3D, )
 __all__ = ["Scene", "Perspective_Camera"]
+
+def iter_pairwise(List:list) :
+    n = 0 ; length  = len(List) - 1
+    while n < length :
+        yield List[n]
+        n += 1
+        yield List[n]
+
 
 
 
@@ -25,52 +33,25 @@ def Front_Test(dot1:np.ndarray, dot2:np.ndarray, dot3:np.ndarray) -> bool :
 
 
 
-Crop_Space_Plane_Point = np.array([
-    np.array([1.0, 0.0, 0.0]), np.array([-1.0, 0.0, 0.0]), 
-    np.array([0.0, 1.0, 0.0]), np.array([0.0, -1.0, 0.0]),
-    np.array([0.0, 0.0, 1.0]), np.array([0.0, 0.0, -1.0]) ])
-Crop_Space_Normal_Vector = np.array([
-    np.array([1.0, 0.0, 0.0]), np.array([-1.0, 0.0, 0.0]), 
-    np.array([0.0, 1.0, 0.0]), np.array([0.0, -1.0, 0.0]),
-    np.array([0.0, 0.0, 1.0]), np.array([0.0, 0.0,  0.0]) ])
+Crop_NearPlane_Point = np.array([0.0, 0.0, 1e-19])
+Crop_NearPlane_Vector = np.array([0.0, 0.0, -1.0])
 
-def Cohen_Sutherland_Cropping_Test(dot1:np.ndarray, dot2:np.ndarray) :
+def Cropping_Test(dot1:np.ndarray[np.float64], dot2:np.ndarray[np.float64]) :
     """
-    粗略判断直线是否与裁剪空间相交
-    https://blog.csdn.net/weixin_44397852/article/details/109015504
-    https://www.cnblogs.com/fortunely/p/17739080.html
-    * 返回 False 代表直线与裁剪空间无交点
-    * 返回 True 代表直线完全位于裁剪空间内
-    * 返回 Tuple 代表需要另外进行计算是否相交
+    粗略判断直线是否与平面相交
+    * 返回 False 代表直线在近平面的外侧(需忽略该直线)
+    * 返回 True 代表直线在近平面的内侧(直接渲染该直线)
+    * 返回 -1 代表直线与近平面相交(需另外计算交点并裁剪)
     """
-
-    encode_number = np.uint16(0)
-    if dot1[1] > 1 :  encode_number |= 0b100000_000000
-    if dot1[1] < -1 : encode_number |= 0b010000_000000
-    if dot1[0] > 1 :  encode_number |= 0b001000_000000
-    if dot1[0] < -1 : encode_number |= 0b000100_000000
-    if dot1[2] > 1 :  encode_number |= 0b000010_000000
-    if dot1[2] < -1 : encode_number |= 0b000001_000000
-    if dot2[1] > 1 :  encode_number |= 0b100000
-    if dot2[1] < -1 : encode_number |= 0b010000
-    if dot2[0] > 1 :  encode_number |= 0b001000
-    if dot2[0] < -1 : encode_number |= 0b000100
-    if dot2[2] > 1 :  encode_number |= 0b000010
-    if dot2[2] < -1 : encode_number |= 0b000001
-
-    encode_dot1 = encode_number >> 6
-    encode_dot2 = encode_number & 0b111111
-    if encode_dot1 & encode_dot2 : return False
-    if not(encode_dot1 | encode_dot2) : return True
-
-    return encode_dot1, encode_dot2
+    if dot1[2] >= 0 and dot2[2] >= 0 : return True
+    elif dot1[2] < 0 and dot2[2] < 0 : return False
+    else : return -1
 
 def Line_Plane_Intersection(plane_point:np.ndarray[np.float64], plane_normal:np.ndarray[np.float64], 
     line_start_point:np.ndarray[np.float64], line_end_point:np.ndarray[np.float64]) :
     """
     计算直线与平面的交点
-    * 返回 False 表示无交点
-    * 返回 True 表示直线属于平面
+    * 返回 None 表示无交点
     * 返回 numpy.ndarray 表示交点坐标
     """
 
@@ -80,8 +61,8 @@ def Line_Plane_Intersection(plane_point:np.ndarray[np.float64], plane_normal:np.
     dot_product = np.dot(plane_normal, line_direction)
     if dot_product == 0 : 
         prove = sum( (i*(j-k) for i,j,k in zip(plane_normal, line_start_point, plane_point)) )
-        if prove : return False
-        else : return True
+        if prove : return None
+        else : return line_start_point
 
     # 计算从直线点到平面点的向量
     w = plane_point - line_start_point
@@ -89,20 +70,34 @@ def Line_Plane_Intersection(plane_point:np.ndarray[np.float64], plane_normal:np.
     # 计算交点
     factor = np.dot(plane_normal, w) / dot_product
     intersection:np.ndarray[np.float64] = line_start_point + factor * line_direction
-    if any( ( (not min(i,k)<=j<=max(i,k)) for i,j,k in zip(line_start_point, intersection, line_end_point)) ) :
-        return False
 
     return intersection
 
-def Line_Cropping(dot1:np.ndarray, dot2:np.ndarray) : 
-    preliminary_testing = Cohen_Sutherland_Cropping_Test(dot1, dot2)
-    if preliminary_testing is False : return None, None
-    elif preliminary_testing is True : return dot1, dot2
+def Intersection_Test(start:np.ndarray[np.float64], end:np.ndarray[np.float64], dot:np.ndarray[np.float64]) :
+    """
+    判断交点是否位于直线上
+    * 返回 False 表示非法交点
+    * 返回 True 表示合法交点
+    """
+    k1 = sum(dot - start) ; k2 = sum(end - start)
+    if k2 and not(0 <= k1/k2 <= 1) : print(1) ; return False
+    elif k2 == k1 == 0 : print(2) ; return True
+    else : print(3) ; return False
 
-    for intersection_dots in (Line_Plane_Intersection(i, j, dot1, dot2) 
-    for i,j in zip(Crop_Space_Plane_Point, Crop_Space_Normal_Vector)) :
-        if intersection_dots is False : continue
-        
+def Line_Cropping(dot1:np.ndarray, dot2:np.ndarray) : 
+    preliminary_testing = Cropping_Test(dot1, dot2)
+
+    if preliminary_testing == -1 :
+        if dot1[2] > 0 : dot2, dot1 = dot1, dot2
+        intersection_dot = Line_Plane_Intersection(Crop_NearPlane_Point, Crop_NearPlane_Vector, dot1, dot2)
+        if intersection_dot is None : return None, None
+        print(dot1, dot2, intersection_dot)
+        if not Intersection_Test(dot1, dot2, intersection_dot) : return None, None
+        return intersection_dot, dot2
+    elif preliminary_testing : return dot1, dot2
+    else: return None, None
+
+
 
 
 
@@ -170,33 +165,30 @@ class Perspective_Camera :
         self.rotation = np.zeros(3)
 
 
-    def __GLRender__(self, *dots:np.ndarray[np.float64]) : 
+    def __GLRender__(self, dots:np.ndarray[np.float64]) : 
         GL.glBegin(GL.GL_LINES)
-        for index in range(len(dots) - 1) : 
-            dot1, dot2 = Line_Cropping(dots[index], dots[index+1])
-            if dot1 is None and dot2 is None : continue
-
-            GL.glVertex3d(*dot1)
-            GL.glVertex3d(*dot2)
+        for dot in dots : GL.glVertex3d(*dot)
         GL.glEnd()
 
     def __calculate__(self, graphic:TypeAliasRenderObject, projection_matrix:np.ndarray, local_matrix:np.ndarray) :
 
         for gird_dots in graphic.mesh :
             local_dots = np.array( [Local_Tansfor(local_matrix, self.location, i) for i in gird_dots], dtype=np.float64)
-            projection_dots = np.array( [Camera_Projection(projection_matrix, i) for i in local_dots], dtype=np.float64)
-            #print(local_dots, "\n" , projection_dots, "\n##########################")
-            if isinstance(graphic.mesh, Graphics.Mesh.LineMesh) : 
-                self.__GLRender__( *projection_dots )
-            elif isinstance(graphic.mesh, Graphics.Mesh.TriangleMesh) and \
-                Front_Test(local_dots[0], local_dots[1], local_dots[2]) : 
-                self.__GLRender__( *projection_dots, projection_dots[0] )
-            elif isinstance(graphic.mesh, Graphics.Mesh.QuadrilateralMesh) :
-                if Front_Test(local_dots[0], local_dots[1], local_dots[2]) : 
-                    self.__GLRender__( *projection_dots[0:3] )
-                if Front_Test(local_dots[2], local_dots[3], local_dots[0]) : 
-                    self.__GLRender__( *projection_dots[-2:], projection_dots[0] )
-                #print(tansformation_dots)
+            if isinstance(graphic.mesh, Graphics.Mesh.TriangleMesh) and \
+                not Front_Test(local_dots[0], local_dots[1], local_dots[2]) : continue
+
+            if not isinstance(graphic.mesh, Graphics.Mesh.LineMesh) : local_dots = np.array([*local_dots, local_dots[0]], dtype=np.float64)
+            line_of_local_dots = np.array( [i for i in iter_pairwise(local_dots)], dtype=object)
+
+            print(line_of_local_dots)
+            for index in range(0, len(line_of_local_dots), 2) :
+                d1,d2 = Line_Cropping(line_of_local_dots[index], line_of_local_dots[index+1])
+                line_of_local_dots[index], line_of_local_dots[index+1] = d1,d2
+            print(line_of_local_dots, end="\n\n")
+
+            projection_dots = np.array( [Camera_Projection(projection_matrix, i) 
+                for i in line_of_local_dots if i.all()], dtype=np.float64)
+            self.__GLRender__( projection_dots )
 
     def __call__(self) :
         projection_matrix = self.projection_matrix
@@ -222,16 +214,17 @@ class Perspective_Camera :
         a,b,c = self.rotation[0], self.rotation[1], self.rotation[2]
         RotateX = np.array([
             [1.0, 0.0, 0.0], 
-            [0.0, np.cos(a), np.sin(a)], 
-            [0.0, -np.sin(a), np.cos(a)]])
+            [0.0, np.cos(a), -np.sin(a)], 
+            [0.0, np.sin(a), np.cos(a)]])
         RotateY = np.array([
-            [np.cos(b), 0.0, -np.sin(b)], 
+            [np.cos(b), 0.0, np.sin(b)], 
             [0.0, 1.0, 0.0], 
-            [np.sin(b), 0.0, np.cos(b)]])
+            [-np.sin(b), 0.0, np.cos(b)]])
         RotateZ = np.array([
-            [np.cos(c), np.sin(c), 0.0], 
-            [-np.sin(c), np.cos(c), 0.0], 
+            [np.cos(c), -np.sin(c), 0.0], 
+            [np.sin(c), np.cos(c), 0.0], 
             [0.0, 0.0, 1.0]])
         
         m1 = RotateZ.dot( RotateX.dot( RotateY ) )
         return m1
+    

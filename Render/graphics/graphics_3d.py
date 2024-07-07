@@ -9,9 +9,9 @@ class BaseGraphic3D :
     def __repr__(self) -> str:
         return "<Object %s>" % self.__class__.__name__
 
-    def __init__(self, mesh:Union[Mesh.TriangleMesh, Mesh.LineMesh, Mesh.QuadrilateralMesh], 
+    def __init__(self, mesh:Union[Mesh.TriangleMesh, Mesh.LineMesh], 
                  dots:Iterator[Union[int,float]], dot_index:Iterator[int]) :
-        self.mesh:Union[Mesh.TriangleMesh, Mesh.LineMesh, Mesh.QuadrilateralMesh] = mesh(dots, dot_index)
+        self.mesh:Union[Mesh.TriangleMesh, Mesh.LineMesh] = mesh(dots, dot_index)
         self.location = self.mesh.location
         self.translation = self.mesh.translation
         self.scale = self.mesh.scale
@@ -64,5 +64,4 @@ class Line(BaseGraphic3D) :
         self.mesh.dots[1] = RotateZ.dot( RotateY.dot( RotateX.dot([1,0.0,0.0]) ) )
         self.mesh.dots[2] = RotateZ.dot( RotateY.dot( RotateX.dot([0,1.0,0.0]) ) )
         self.mesh.dots[3] = RotateZ.dot( RotateY.dot( RotateX.dot([0,0.0,1.0]) ) )
-        self.a[2] += 1 * np.pi / 180 ; #print(self.a[0] / np.pi * 180)
-        #print(self.mesh.dots)
+        self.a[2] += 1 * np.pi / 180
