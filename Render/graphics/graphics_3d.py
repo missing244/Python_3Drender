@@ -26,7 +26,7 @@ class BaseGraphic3D :
 
 
     def set_location(self, pos:np.ndarray) :
-        self.location = np.array(pos, dtype=np.float64)
+        self.location = np.array(pos, dtype=np.float32)
         return self
 
 

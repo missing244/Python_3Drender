@@ -6,7 +6,7 @@ from typing import Union,Iterator,Callable,Generator,List,Tuple
 import abc
 
 TypeOfInt = (int, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)
-TypeOfNumber = (int, float, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64, np.float16, np.float32, np.float64)
+TypeOfNumber = (int, float, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64, np.float16, np.float32, np.float32)
 
 
 

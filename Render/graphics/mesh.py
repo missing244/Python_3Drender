@@ -12,29 +12,29 @@ class BaseMesh(metaclass=abc.ABCMeta) :
         self.rotation = np.array([1.0, 0.0, 0.0, 0.0])
 
     @property
-    def translation_matrix(self) -> np.ndarray[np.float64] :
+    def translation_matrix(self) -> np.ndarray[np.float32] :
         return np.array( [
             [1, 0, 0, self.translation[0]],
             [0, 1, 0, self.translation[1]],
             [0, 0, 1, self.translation[2]],
-            [0, 0, 0, 1]], dtype=np.float64)
+            [0, 0, 0, 1]], dtype=np.float32)
 
     @property
-    def scale_matrix(self) -> np.ndarray[np.float64] :
+    def scale_matrix(self) -> np.ndarray[np.float32] :
         return np.array( [
             [self.scale[0], 0, 0, 0],
             [0, self.scale[1], 0, 0],
             [0, 0, self.scale[2], 0],
-            [0, 0, 0, 1]], dtype=np.float64)
+            [0, 0, 0, 1]], dtype=np.float32)
 
     @property
-    def rotation_matrix(self) -> np.ndarray[np.float64] :
+    def rotation_matrix(self) -> np.ndarray[np.float32] :
         a = self.rotation[0]; b=self.rotation[1]; c=self.rotation[2]; d=self.rotation[3]
         return np.array( [
             [1-2*(c**2)-2*(d**2), 2*b*c-2*a*d, 2*a*c+2*b*d, 0],
             [2*b*c+2*a*d, 1-2*(b**2)-2*(d**2), 2*c*d-2*a*b, 0],
             [2*b*d-2*a*c, 2*a*b+2*c*d, 1-2*(b**2)-2*(c**2), 0],
-            [0, 0, 0, 1]], dtype=np.float64)
+            [0, 0, 0, 1]], dtype=np.float32)
 
     @abc.abstractmethod
     def __iter__(self) : pass
@@ -62,7 +62,7 @@ class LineMesh(BaseMesh, metaclass=abc.ABCMeta) :
         if len(dots) % 3 != 0 : raise ValueError("存在不完整的三维点信息")
         if len(index) % 2 != 0 : raise ValueError("直线索引的数量必须为2的倍数")
 
-        self.dots:np.ndarray[np.float64] = np.array([dots[i:i+3] for i in range(0, len(dots), 3)], dtype=np.float64)
+        self.dots:np.ndarray[np.float32] = np.array([np.append(dots[i:i+3], 1) for i in range(0, len(dots), 3)], dtype=np.float32)
         self.index:np.ndarray[np.uint32] = np.array(index, dtype=np.uint32)
 
     def __setattr__(self, name: str, value) -> None:
@@ -73,12 +73,13 @@ class LineMesh(BaseMesh, metaclass=abc.ABCMeta) :
         translation = self.translation_matrix
         scale = self.scale_matrix
         rotate = self.rotation_matrix
+        for i in range(3) : translation[i][3] += self.location[i]
+
         for i in range(0, len(self.index), 2) :
-            yield np.array ([
-                translation.dot( scale.dot( rotate.dot( 
-                    np.append(self.dots[self.index[i+j]], 1)
-                )))[0:3] + self.location
-            for j in range(2)], dtype=np.float64)
+            yield np.array( [
+                translation.dot( scale.dot( rotate.dot( self.dots[self.index[i]] ) ) ),
+                translation.dot( scale.dot( rotate.dot( self.dots[self.index[i+1]] ) ) )
+            ], dtype=np.float32)
 
 class TriangleMesh(BaseMesh, metaclass=abc.ABCMeta) :
     """
@@ -104,7 +105,7 @@ class TriangleMesh(BaseMesh, metaclass=abc.ABCMeta) :
         if len(dots) % 3 != 0 : raise ValueError("存在不完整的三维点信息")
         if len(index) % 3 != 0 : raise ValueError("三角网索引的数量必须为3的倍数")
 
-        self.dots:np.ndarray[np.float64] = np.array([dots[i:i+3] for i in range(0, len(dots), 3)], dtype=np.float64)
+        self.dots:np.ndarray[np.float32] = np.array([np.append(dots[i:i+3], 1) for i in range(0, len(dots), 3)], dtype=np.float32)
         self.index:np.ndarray[np.uint32] = np.array(index, dtype=np.uint32)
 
     def __setattr__(self, name: str, value) -> None:
@@ -115,10 +116,12 @@ class TriangleMesh(BaseMesh, metaclass=abc.ABCMeta) :
         translation = self.translation_matrix
         scale = self.scale_matrix
         rotate = self.rotation_matrix
+        for i in range(3) : translation[i][3] += self.location[i]
+
         for i in range(0, len(self.index), 3) :
-            yield np.array ([
-                translation.dot( scale.dot( rotate.dot( 
-                    np.append(self.dots[self.index[i+j]], 1)
-                )))[0:3] + self.location
-            for j in range(3)], dtype=np.float64 )
+            yield np.array( [
+                translation.dot( scale.dot( rotate.dot( self.dots[self.index[i]] ) ) ),
+                translation.dot( scale.dot( rotate.dot( self.dots[self.index[i+1]] ) ) ),
+                translation.dot( scale.dot( rotate.dot( self.dots[self.index[i+2]] ) ) )
+            ], dtype=np.float32)
 

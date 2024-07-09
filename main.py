@@ -6,10 +6,13 @@ import OpenGL.GLUT as GLUT
 from Render import register_render_callback
 from Render import Camera, Graphics
 
+import itertools, time, cProfile
+
 WIDTH, HEIGHT = 16*70, 9*70
 G0 = Graphics.Graphic3D.Cube().set_location([0,0,5])
 G1 = Graphics.Graphic3D.BaseGraphic3D(Graphics.Mesh.TriangleMesh, [-1,0,0, 0,0,1, 1,0,0], [0,1,2]).set_location([0,0,5])
-Scene = Camera.Scene( G1 )
+G2 = [Graphics.Graphic3D.Cube().set_location([i,0,j]) for i,j in itertools.product(range(0, 101, 5), range(0, 101, 5))]
+Scene = Camera.Scene( *G2 )
 Camera1 = Camera.Perspective_Camera(WIDTH, HEIGHT, Scene, 90.0, 0.1, 50)
 
 
@@ -22,6 +25,7 @@ def keyboard(key, x, y) :
     if key == b' ' : Camera1.location[1] += 0.3
     if key == 112 : Camera1.location[1] -= 0.3
     print(key, Camera1.location)
+    cProfile.run("flash()", sort=1)
 def Motion(x, y) :
     if (WIDTH//2) == x and (HEIGHT//2) == y : return None
     Camera1.rotation[1] -= np.pi / 180 * (WIDTH//2 - x) * 0.2
@@ -37,10 +41,10 @@ def windowscall() :
     GLUT.glutPassiveMotionFunc(Motion)
 
 
-
 def flash() : 
     GL.glColor3f(1, 1, 1)
     Camera1()
-    
 
-register_render_callback(WIDTH, HEIGHT, 60, flash, windowscall) 
+
+
+register_render_callback(WIDTH, HEIGHT, 90, flash, windowscall) 
